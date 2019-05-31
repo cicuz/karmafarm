@@ -8,11 +8,37 @@ import (
 	"io"
 	"log"
 	"os"
+	"runtime"
 	static "staticdata"
 	"time"
 )
 
+func worker(eventChan <-chan []string, doneChan <-chan bool) {
+	fmt.Println("worker started")
+	for {
+		select {
+		case event, _ := <-eventChan:
+			layout := "2006-01-02 15:04:05" // January 2nd :roll_eyes:
+			datetime, _ := time.Parse(layout, event[1])
+			finding := static.Finding{
+				Id:            event[0],
+				Time:          datetime,
+				Vulnerability: static.Vul[event[2]],
+			}
+
+			findingJson, _ := json.Marshal(finding)
+			fmt.Println(string(findingJson))
+		case done, _ := <-doneChan:
+			if done {
+				fmt.Println("worker exiting ", runtime.NumGoroutine())
+				return
+			}
+		}
+	}
+}
+
 func main() {
+	// just printing out static values
 	csJson, _ := json.Marshal(static.Cs)
 	fmt.Println(string(csJson))
 
@@ -22,6 +48,15 @@ func main() {
 	vulJson, _ := json.Marshal(static.Vul)
 	fmt.Println(string(vulJson))
 
+	// instantiating the channel
+	eventChan := make(chan []string, 10)
+	doneChan := make(chan bool, 1)
+
+	// start a worker
+	fmt.Println(runtime.NumGoroutine())
+	//go worker(eventChan, doneChan)
+	fmt.Println(runtime.NumGoroutine())
+
 	file, err := os.Open("input/finding.csv")
 	if err != nil {
 		log.Fatal(err)
@@ -30,25 +65,22 @@ func main() {
 	reader := csv.NewReader(bufio.NewReader(file))
 
 	for {
-		line, err := reader.Read()
-		if err != nil {
+		finding, err := reader.Read()
+		if err == nil {
+			if runtime.NumGoroutine() < 4 {
+				go worker(eventChan, doneChan)
+			}
+			eventChan <- finding
+		} else {
 			if err == io.EOF {
+				if runtime.NumGoroutine() > 1 {
+					doneChan <- true
+				}
 				fmt.Println("sleeeeeeeeping")
 				time.Sleep(1 * time.Second)
 			} else {
 				break
 			}
-		} else {
-			layout := "2006-01-02 15:04:05"  // January 2nd :roll_eyes:
-			time, _ := time.Parse(layout, line[1])
-			finding := static.Finding{
-				Id:            line[0],
-				Time:          time,
-				Vulnerability: static.Vul[line[2]],
-			}
-
-			findingJson, _ := json.Marshal(finding)
-			fmt.Println(string(findingJson))
 		}
 	}
 }
