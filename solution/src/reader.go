@@ -49,7 +49,7 @@ func main() {
 	fmt.Println(string(vulJson))
 
 	// instantiating the channel
-	eventChan := make(chan []string, 10)
+	eventChan := make(chan []string, 100)
 	doneChan := make(chan bool, 1)
 
 	// start a worker
@@ -67,13 +67,19 @@ func main() {
 	for {
 		finding, err := reader.Read()
 		if err == nil {
-			if runtime.NumGoroutine() < 4 {
+			select {
+			case eventChan <- finding:
+				// channel not full
+			default:
+				// channel full, add worker and requeue message
+				fmt.Println("adding worker")
 				go worker(eventChan, doneChan)
+				eventChan <- finding
+				fmt.Println("added worker ", runtime.NumGoroutine())
 			}
-			eventChan <- finding
 		} else {
 			if err == io.EOF {
-				if runtime.NumGoroutine() > 1 {
+				if runtime.NumGoroutine() > 2 {
 					doneChan <- true
 				}
 				fmt.Println("sleeeeeeeeping")
