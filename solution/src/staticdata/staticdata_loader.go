@@ -136,12 +136,40 @@ func GetVulnerability(vul_id string) (Vulnerability) {
 	row.ScanDoc(&vul)
 	return vul
 }
+
+func initdb(dbname string) {
+	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	dbexists, _ := client.DBExists(context.TODO(), dbname)
+	if dbexists {
+		client.DestroyDB(context.TODO(), dbname)
 	}
+	client.CreateDB(context.TODO(), dbname)
 }
 
 func init() {
-	load_crowdsourcers()
-	load_severities()
-	load_vulnerabilities()
+	var wg sync.WaitGroup
+	for _, dbname := range []string{"finding", "crowdsourcer", "severity", "vulnerability"} {
+		go func(dbname string) {
+			defer wg.Done()
+			initdb(dbname)
+		}(dbname)
+		wg.Add(1)
+	}
+	wg.Wait()
+
+	go func() {
+		defer wg.Done()
+		load_crowdsourcers()
+	}()
+	go func() {
+		defer wg.Done()
+		load_severities()
+	}()
+	go func() {
+		defer wg.Done()
+		load_vulnerabilities()
+	}()
+	wg.Add(3)
+	wg.Wait()
 }
 
