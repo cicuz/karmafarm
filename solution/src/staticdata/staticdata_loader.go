@@ -36,7 +36,7 @@ var Vul map[string]*Vulnerability
 var Sev map[string]*Severity
 
 
-func load_crowdsourcer() {
+func load_crowdsourcers() {
 	csvFile, _ := os.Open("input/crowdsourcer.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Cs = make(map[string]*Crowdsourcer)
@@ -54,7 +54,7 @@ func load_crowdsourcer() {
 	}
 }
 
-func load_severity() {
+func load_severities() {
 	csvFile, _ := os.Open("input/severity.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Sev = make(map[string]*Severity)
@@ -72,7 +72,7 @@ func load_severity() {
 	}
 }
 
-func load_vulnerability() {
+func load_vulnerabilities() {
 	csvFile, _ := os.Open("input/vulnerability.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Vul = make(map[string]*Vulnerability)
@@ -92,8 +92,8 @@ func load_vulnerability() {
 }
 
 func init() {
-	load_crowdsourcer()
-	load_severity()
-	load_vulnerability()
+	load_crowdsourcers()
+	load_severities()
+	load_vulnerabilities()
 }
 

@@ -30,7 +30,7 @@ func worker(eventChan <-chan []string, doneChan <-chan bool) {
 			fmt.Println(string(findingJson))
 		case done, _ := <-doneChan:
 			if done {
-				fmt.Println("worker exiting ", runtime.NumGoroutine())
+				fmt.Println("worker exiting ")
 				return
 			}
 		}
@@ -38,23 +38,13 @@ func worker(eventChan <-chan []string, doneChan <-chan bool) {
 }
 
 func main() {
-	// just printing out static values
-	csJson, _ := json.Marshal(static.Cs)
-	fmt.Println(string(csJson))
-
-	sevJson, _ := json.Marshal(static.Sev)
-	fmt.Println(string(sevJson))
-
-	vulJson, _ := json.Marshal(static.Vul)
-	fmt.Println(string(vulJson))
-
-	// instantiating the channel
+	// instantiating the channels
 	eventChan := make(chan []string, 100)
 	doneChan := make(chan bool, 1)
 
 	// start a worker
 	fmt.Println(runtime.NumGoroutine())
-	//go worker(eventChan, doneChan)
+	go worker(eventChan, doneChan)
 	fmt.Println(runtime.NumGoroutine())
 
 	file, err := os.Open("input/finding.csv")
@@ -63,26 +53,32 @@ func main() {
 	}
 	defer file.Close()
 	reader := csv.NewReader(bufio.NewReader(file))
-
+	workerscounter := 0
+	counter := 0
 	for {
 		finding, err := reader.Read()
 		if err == nil {
+			counter += 1
 			select {
 			case eventChan <- finding:
 				// channel not full
 			default:
-				// channel full, add worker and requeue message
-				fmt.Println("adding worker")
-				go worker(eventChan, doneChan)
+				// channel full, possibly add worker and then requeue message with a blocking call
+				if workerscounter < 20 {
+					fmt.Println("adding worker")
+					go worker(eventChan, doneChan)
+					workerscounter += 1
+				}
 				eventChan <- finding
 				fmt.Println("added worker ", runtime.NumGoroutine())
 			}
 		} else {
 			if err == io.EOF {
-				if runtime.NumGoroutine() > 2 {
+				if workerscounter > 2 {
 					doneChan <- true
+					workerscounter -= 1
 				}
-				fmt.Println("sleeeeeeeeping")
+				fmt.Println("sleeeeeeeeping ", counter, workerscounter)
 				time.Sleep(1 * time.Second)
 			} else {
 				break
