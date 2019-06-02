@@ -1,0 +1,27 @@
+version: "3.4"
+
+services:
+  couch:
+    image: couchdb-docker:2.3.1
+    build:
+      context: ..
+      dockerfile: Dockerfile-couch
+    volumes:
+      - ../couchdb_data:/opt/couchdb/data
+      - ../couchdb_config:/opt/couchdb/etc/local.d
+    ports:
+      - "5984:5984"
+  go:
+    image: golang:1.12
+    env_file:
+      - ../.env
+    build:
+      context: ..
+      dockerfile: Dockerfile-go
+    volumes:
+      - ../solution/src/karmafarm:/go/src/karmafarm
+      - ../input:/go/input
+    depends_on:
+      - couch
+    working_dir: /go/src/karmafarm
+    command: go run karmafarm

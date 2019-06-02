@@ -1,0 +1,5 @@
+FROM golang:1.12
+
+RUN go get -d -v github.com/go-kivik/couchdb
+RUN go get -d -v github.com/go-kivik/kivik
+RUN go get -d -v golang.org/x/net/context
