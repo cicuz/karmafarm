@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -21,7 +22,8 @@ type Crowdsourcer struct {
 
 type Severity struct {
 	Id string `json:"id"`
-	Value string `json:"value"`
+	Name string `json:"name"`
+	Karma int `json:"karma"`
 }
 
 type Vulnerability struct {
@@ -85,9 +87,11 @@ func load_severities() {
 		} else if error != nil {
 			log.Fatal(error)
 		}
+		karma, _ := strconv.Atoi(line[2])
 		Sev[line[0]] = &Severity {
 			Id: line[0],
-			Value:  line[1],
+			Name:  line[1],
+			Karma: karma,
 		}
 		sevJson, _ := json.Marshal(*Sev[line[0]])
 		db.Put(context.TODO(), line[0], sevJson)
