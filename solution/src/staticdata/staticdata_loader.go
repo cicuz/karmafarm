@@ -150,6 +150,20 @@ func initdb(dbname string) {
 	client.CreateDB(context.TODO(), dbname)
 }
 
+func add_map_and_list_views() {
+	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	db := client.DB(context.TODO(), "finding")
+	db.Put(context.TODO(), "_design/findingDesign", map[string]interface{} {
+		"_id": "_design/findingDesign",
+		"views": map[string]interface{}{
+			"findingcs": map[string]interface{}{
+				"reduce": "_sum",
+				"map": "function (doc) {\n  emit([doc.vulnerability.crowdsourcer.name, doc.vulnerability.severity.name], doc.vulnerability.severity.karma);\n}",
+			},
+		},
+	})
+}
+
 func init() {
 	var wg sync.WaitGroup
 	for _, dbname := range []string{"finding", "crowdsourcer", "severity", "vulnerability"} {
@@ -163,13 +177,18 @@ func init() {
 
 	go func() {
 		defer wg.Done()
+		add_map_and_list_views()
+	}()
+	go func() {
+		defer wg.Done()
 		load_crowdsourcers()
 	}()
 	go func() {
 		defer wg.Done()
 		load_severities()
 	}()
-	wg.Add(2)
+	wg.Add(3)
 	wg.Wait()
+
 	load_vulnerabilities()
 }
