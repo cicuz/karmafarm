@@ -11,7 +11,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"runtime"
 	static "staticdata"
 	"time"
 )
@@ -33,6 +32,7 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 			}
 
 			findingJson, _ := json.Marshal(finding)
+			fmt.Println(string(findingJson))
 			rev, err := db.Put(context.TODO(), event[0], finding)
 			if err != nil {
 				// document was existing, try to update it
@@ -62,14 +62,13 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 }
 
 func main() {
-	// instantiating the channels
+	// instantiate the channels
 	eventChan := make(chan []string, 100)
 	doneChan := make(chan bool, 1)
 
 	// start a worker
-	fmt.Println(runtime.NumGoroutine())
 	go worker(eventChan, doneChan)
-	fmt.Println(runtime.NumGoroutine())
+	workerscounter := 1
 
 	file, err := os.Open("input/finding.csv")
 	if err != nil {
@@ -77,7 +76,6 @@ func main() {
 	}
 	defer file.Close()
 	reader := csv.NewReader(bufio.NewReader(file))
-	workerscounter := 1
 	counter := 0
 	for {
 		finding, err := reader.Read()

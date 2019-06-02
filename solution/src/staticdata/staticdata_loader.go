@@ -165,11 +165,7 @@ func init() {
 		defer wg.Done()
 		load_severities()
 	}()
-	go func() {
-		defer wg.Done()
-		load_vulnerabilities()
-	}()
-	wg.Add(3)
+	wg.Add(2)
 	wg.Wait()
+	load_vulnerabilities()
 }
-
