@@ -15,6 +15,18 @@ import (
 	"time"
 )
 
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
+}
+
+var CouchdbURL = getEnv("COUCHDB_URL","http://admin:pass@localhost:5984/")
+var MaxGoroutine, _ = strconv.Atoi(getEnv("MAX_GOROUTINE", "20"))
+var MsgQueueSize, _ = strconv.Atoi(getEnv("MSG_QUEUE_SIZE", "100"))
+var InputLocation = getEnv("INPUT_LOCATION", "../../../input")
+
 type Crowdsourcer struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -44,10 +56,10 @@ var Sev map[string]*Severity
 
 
 func load_crowdsourcers() {
-	csvFile, _ := os.Open("input/crowdsourcer.csv")
+	csvFile, _ := os.Open(InputLocation + "/crowdsourcer.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Cs = make(map[string]*Crowdsourcer)
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "crowdsourcer")
 	for {
 		line, error := reader.Read()
@@ -66,7 +78,7 @@ func load_crowdsourcers() {
 }
 
 func GetCrowdsourcer(cs_id string) (Crowdsourcer) {
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "crowdsourcer")
 	row := db.Get(context.TODO(), cs_id)
 	cs := Crowdsourcer{}
@@ -75,10 +87,10 @@ func GetCrowdsourcer(cs_id string) (Crowdsourcer) {
 }
 
 func load_severities() {
-	csvFile, _ := os.Open("input/severity.csv")
+	csvFile, _ := os.Open(InputLocation + "/severity.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Sev = make(map[string]*Severity)
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "severity")
 	for {
 		line, error := reader.Read()
@@ -99,7 +111,7 @@ func load_severities() {
 }
 
 func GetSeverity(sev_id string) (Severity) {
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "severity")
 	row := db.Get(context.TODO(), sev_id)
 	sev := Severity{}
@@ -108,10 +120,10 @@ func GetSeverity(sev_id string) (Severity) {
 }
 
 func load_vulnerabilities() {
-	csvFile, _ := os.Open("input/vulnerability.csv")
+	csvFile, _ := os.Open(InputLocation + "/vulnerability.csv")
 	reader := csv.NewReader(bufio.NewReader(csvFile))
 	Vul = make(map[string]*Vulnerability)
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "vulnerability")
 	for {
 		line, error := reader.Read()
@@ -133,7 +145,7 @@ func load_vulnerabilities() {
 }
 
 func GetVulnerability(vul_id string) (Vulnerability) {
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "vulnerability")
 	row := db.Get(context.TODO(), vul_id)
 	vul := Vulnerability{}
@@ -141,17 +153,17 @@ func GetVulnerability(vul_id string) (Vulnerability) {
 	return vul
 }
 
-func initdb(dbname string) {
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+func initdb(dbname string, refreshdb bool) {
+	client, _ := kivik.New("couch", CouchdbURL)
 	dbexists, _ := client.DBExists(context.TODO(), dbname)
-	if dbexists {
+	if dbexists && refreshdb {
 		client.DestroyDB(context.TODO(), dbname)
 	}
 	client.CreateDB(context.TODO(), dbname)
 }
 
 func add_map_and_list_views() {
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "finding")
 	db.Put(context.TODO(), "_design/findingDesign", map[string]interface{} {
 		"_id": "_design/findingDesign",
@@ -166,14 +178,24 @@ func add_map_and_list_views() {
 
 func init() {
 	var wg sync.WaitGroup
-	for _, dbname := range []string{"finding", "crowdsourcer", "severity", "vulnerability"} {
+	for _, dbname := range []string{"_users", "_replicator"} {
 		go func(dbname string) {
 			defer wg.Done()
-			initdb(dbname)
+			initdb(dbname, false)
 		}(dbname)
 		wg.Add(1)
 	}
 	wg.Wait()
+
+	for _, dbname := range []string{"finding", "crowdsourcer", "severity", "vulnerability"} {
+		go func(dbname string) {
+			defer wg.Done()
+			initdb(dbname, true)
+		}(dbname)
+		wg.Add(1)
+	}
+	wg.Wait()
+	load_severities()
 
 	go func() {
 		defer wg.Done()

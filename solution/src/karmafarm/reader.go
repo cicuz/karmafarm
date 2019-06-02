@@ -9,15 +9,15 @@ import (
 	"github.com/go-kivik/kivik"
 	"golang.org/x/net/context"
 	"io"
+	static "karmafarm/staticdata"
 	"log"
 	"os"
-	static "staticdata"
 	"time"
 )
 
 func worker(eventChan chan []string, doneChan <-chan bool) {
 	fmt.Println("worker started")
-	client, _ := kivik.New("couch", "http://admin:pass@localhost:5984/")
+	client, _ := kivik.New("couch", static.CouchdbURL)
 	db := client.DB(context.TODO(), "finding")
 	for {
 		select {
@@ -63,14 +63,14 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 
 func main() {
 	// instantiate the channels
-	eventChan := make(chan []string, 100)
+	eventChan := make(chan []string, static.MsgQueueSize)
 	doneChan := make(chan bool, 1)
 
 	// start a worker
 	go worker(eventChan, doneChan)
 	workerscounter := 1
 
-	file, err := os.Open("input/finding.csv")
+	file, err := os.Open(static.InputLocation + "/finding.csv")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func main() {
 				// channel not full
 			default:
 				// channel full, possibly add worker and then requeue message with a blocking call
-				if workerscounter < 20 {
+				if workerscounter < static.MaxGoroutine {
 					fmt.Println("adding worker")
 					go worker(eventChan, doneChan)
 					workerscounter += 1
