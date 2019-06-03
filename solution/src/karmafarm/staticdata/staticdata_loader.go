@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// get environment variables with fallback value if not set
 func getEnv(key, fallback string) string {
 	if value, ok := os.LookupEnv(key); ok {
 		return value
@@ -28,6 +29,7 @@ var MsgQueueSize, _ = strconv.Atoi(getEnv("MSG_QUEUE_SIZE", "100"))
 var InputLocation = getEnv("INPUT_LOCATION", "../../../input")
 var LogLocation = getEnv("LOG_LOCATION", "../../logs")
 
+// define models
 type Crowdsourcer struct {
 	Id string `json:"id"`
 	Name string `json:"name"`
@@ -154,6 +156,7 @@ func GetVulnerability(vul_id string) (Vulnerability) {
 	return vul
 }
 
+// conditionally wipe a database, then create it anew
 func initdb(dbname string, refreshdb bool) {
 	client, _ := kivik.New("couch", CouchdbURL)
 	dbexists, _ := client.DBExists(context.TODO(), dbname)
@@ -179,6 +182,7 @@ func add_map_and_list_views() {
 
 func init() {
 	var wg sync.WaitGroup
+	// init system databases only if they don't exist already
 	for _, dbname := range []string{"_users", "_replicator"} {
 		go func(dbname string) {
 			defer wg.Done()
@@ -188,6 +192,7 @@ func init() {
 	}
 	wg.Wait()
 
+	// wipe and initialize application databases
 	for _, dbname := range []string{"finding", "crowdsourcer", "severity", "vulnerability"} {
 		go func(dbname string) {
 			defer wg.Done()
@@ -197,14 +202,17 @@ func init() {
 	}
 	wg.Wait()
 
+	// add view functions
 	go func() {
 		defer wg.Done()
 		add_map_and_list_views()
 	}()
+	// load crowdsourcers table
 	go func() {
 		defer wg.Done()
 		load_crowdsourcers()
 	}()
+	// load severities values
 	go func() {
 		defer wg.Done()
 		load_severities()
@@ -212,5 +220,6 @@ func init() {
 	wg.Add(3)
 	wg.Wait()
 
+	// load vulnerabilities list (depends on croudsourcers and severities)
 	load_vulnerabilities()
 }
