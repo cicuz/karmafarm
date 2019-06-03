@@ -21,6 +21,7 @@ services:
     volumes:
       - ../solution/src/karmafarm:/go/src/karmafarm
       - ../input:/go/input
+      - ../solution/logs:/go/logs
     depends_on:
       - couch
     working_dir: /go/src/karmafarm

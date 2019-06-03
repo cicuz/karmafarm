@@ -1,21 +1,33 @@
 package main
 
 import (
-	"bufio"
-	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-kivik/couchdb"
 	"github.com/go-kivik/kivik"
-	"golang.org/x/net/context"
-	"io"
-	static "karmafarm/staticdata"
 	"log"
 	"os"
+	"strings"
+	"github.com/hpcloud/tail"
+	"golang.org/x/net/context"
+	static "karmafarm/staticdata"
 	"time"
 )
 
+var logger *log.Logger
+
+func init() {
+	f, err := os.OpenFile(static.LogLocation + "/karmafarm.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println(err)
+	}
+	defer f.Close()
+
+	logger = log.New(f, "", log.LstdFlags)
+}
+
 func worker(eventChan chan []string, doneChan <-chan bool) {
+	logger.Println("worker started")
 	fmt.Println("worker started")
 	client, _ := kivik.New("couch", static.CouchdbURL)
 	db := client.DB(context.TODO(), "finding")
@@ -32,28 +44,34 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 			}
 
 			findingJson, _ := json.Marshal(finding)
+			logger.Println(string(findingJson))
 			fmt.Println(string(findingJson))
 			rev, err := db.Put(context.TODO(), event[0], finding)
 			if err != nil {
 				// document was existing, try to update it
+				logger.Println("first err ", err, rev, finding)
 				fmt.Println("first err ", err, rev, finding)
 				row := db.Get(context.TODO(), event[0])
 				var m map[string]interface{}
 				json.Unmarshal(findingJson, &m)
+				logger.Println(row.Rev, m)
 				fmt.Println(row.Rev, m)
 				m["_rev"] = row.Rev
 				findingJson, _ = json.Marshal(m)
 				rev, err := db.Put(context.TODO(), event[0], m)
 				if err != nil {
 					// update failed (probably another concurrent update), requeue the message
+					logger.Println("second err ", err, rev, finding)
 					fmt.Println("second err ", err, rev, finding)
-					eventChan <- ([]string{event[0], event[1], event[2]})
+					eventChan <- []string{event[0], event[1], event[2]}
 				} else {
+					logger.Println("first done ", err, rev, finding)
 					fmt.Println("first done ", err, rev, finding)
 				}
 			}
 		case done, _ := <-doneChan:
 			if done {
+				logger.Println("worker exiting")
 				fmt.Println("worker exiting")
 				return
 			}
@@ -70,16 +88,23 @@ func main() {
 	go worker(eventChan, doneChan)
 	workerscounter := 1
 
-	file, err := os.Open(static.InputLocation + "/finding.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer file.Close()
-	reader := csv.NewReader(bufio.NewReader(file))
+	tailfile, _ := tail.TailFile(static.InputLocation + "/finding.csv", tail.Config{Follow: true,
+			         															    Poll: true})
+	offset, _ := tailfile.Tell()
+
 	counter := 0
 	for {
-		finding, err := reader.Read()
-		if err == nil {
+		select {
+		case line := <-tailfile.Lines:
+			finding := strings.Split(line.Text, ",")
+			if len(finding) == 3 {
+				offset, _ = tailfile.Tell()
+			} else {
+				tailfile, _ = tail.TailFile(static.InputLocation + "/finding.csv", tail.Config{Follow: true,
+					Poll: true,
+					Location: &tail.SeekInfo{Offset: offset, Whence: 0}})
+				continue
+			}
 			counter += 1
 			select {
 			case eventChan <- finding:
@@ -87,23 +112,17 @@ func main() {
 			default:
 				// channel full, possibly add worker and then requeue message with a blocking call
 				if workerscounter < static.MaxGoroutine {
-					fmt.Println("adding worker")
 					go worker(eventChan, doneChan)
 					workerscounter += 1
 				}
 				eventChan <- finding
-				fmt.Println("added worker and job")
 			}
-		} else {
-			if err == io.EOF {
-				if workerscounter > 1 {
-					doneChan <- true
-					workerscounter -= 1
-				}
-				fmt.Println("sleeeeeeeeping ", counter, workerscounter)
-				time.Sleep(1 * time.Second)
-			} else {
-				break
+		default:
+			if workerscounter > 1 {
+				doneChan <- true
+				workerscounter -= 1
+				logger.Printf("workerscounter %v\n", workerscounter)
+				fmt.Printf("workerscounter %v\n", workerscounter)
 			}
 		}
 	}

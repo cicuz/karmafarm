@@ -26,6 +26,7 @@ var CouchdbURL = getEnv("COUCHDB_URL","http://admin:pass@localhost:5984/")
 var MaxGoroutine, _ = strconv.Atoi(getEnv("MAX_GOROUTINE", "20"))
 var MsgQueueSize, _ = strconv.Atoi(getEnv("MSG_QUEUE_SIZE", "100"))
 var InputLocation = getEnv("INPUT_LOCATION", "../../../input")
+var LogLocation = getEnv("LOG_LOCATION", "../../logs")
 
 type Crowdsourcer struct {
 	Id string `json:"id"`
@@ -195,7 +196,6 @@ func init() {
 		wg.Add(1)
 	}
 	wg.Wait()
-	load_severities()
 
 	go func() {
 		defer wg.Done()
