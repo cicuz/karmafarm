@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	_ "github.com/go-kivik/couchdb"
 	"github.com/go-kivik/kivik"
-	"log"
-	"os"
-	"strings"
 	"github.com/hpcloud/tail"
 	"golang.org/x/net/context"
 	static "karmafarm/staticdata"
+	"log"
+	"os"
+	"strings"
 	"time"
 )
 
