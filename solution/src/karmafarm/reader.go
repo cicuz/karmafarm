@@ -45,7 +45,7 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 				// fetch the existing object (and its `_rev` field) from the database
 				row := db.Get(context.TODO(), event[0])
 				var m map[string]interface{}
-				json.Unmarshal(findingJson, &m)
+				_ = json.Unmarshal(findingJson, &m)
 				logger.Println(row.Rev, m)
 				m["_rev"] = row.Rev
 				findingJson, _ = json.Marshal(m)
@@ -72,7 +72,7 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 
 func main() {
 	// instantiate a logger
-	f, err := os.OpenFile(static.LogLocation + "/karmafarm.log", os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(static.LogLocation + "/karmafarm.log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		log.Println(err)
 	}

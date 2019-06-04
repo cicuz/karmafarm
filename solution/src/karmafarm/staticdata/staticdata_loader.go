@@ -65,18 +65,18 @@ func load_crowdsourcers() {
 	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "crowdsourcer")
 	for {
-		line, error := reader.Read()
-		if error == io.EOF {
+		line, err := reader.Read()
+		if err == io.EOF {
 			break
-		} else if error != nil {
-			log.Fatal(error)
+		} else if err != nil {
+			log.Fatal(err)
 		}
 		Cs[line[0]] = &Crowdsourcer{
 			Id: line[0],
 			Name:  line[1],
 		}
 		csJson, _ := json.Marshal(*Cs[line[0]])
-		db.Put(context.TODO(), line[0], csJson)
+		_, _ = db.Put(context.TODO(), line[0], csJson)
 	}
 }
 
@@ -85,7 +85,7 @@ func GetCrowdsourcer(cs_id string) (Crowdsourcer) {
 	db := client.DB(context.TODO(), "crowdsourcer")
 	row := db.Get(context.TODO(), cs_id)
 	cs := Crowdsourcer{}
-	row.ScanDoc(&cs)
+	_ = row.ScanDoc(&cs)
 	return cs
 }
 
@@ -96,11 +96,11 @@ func load_severities() {
 	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "severity")
 	for {
-		line, error := reader.Read()
-		if error == io.EOF {
+		line, err := reader.Read()
+		if err == io.EOF {
 			break
-		} else if error != nil {
-			log.Fatal(error)
+		} else if err != nil {
+			log.Fatal(err)
 		}
 		karma, _ := strconv.Atoi(line[2])
 		Sev[line[0]] = &Severity {
@@ -109,7 +109,7 @@ func load_severities() {
 			Karma: karma,
 		}
 		sevJson, _ := json.Marshal(*Sev[line[0]])
-		db.Put(context.TODO(), line[0], sevJson)
+		_, _ = db.Put(context.TODO(), line[0], sevJson)
 	}
 }
 
@@ -118,7 +118,7 @@ func GetSeverity(sev_id string) (Severity) {
 	db := client.DB(context.TODO(), "severity")
 	row := db.Get(context.TODO(), sev_id)
 	sev := Severity{}
-	row.ScanDoc(&sev)
+	_ = row.ScanDoc(&sev)
 	return sev
 }
 
@@ -129,11 +129,11 @@ func load_vulnerabilities() {
 	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "vulnerability")
 	for {
-		line, error := reader.Read()
-		if error == io.EOF {
+		line, err := reader.Read()
+		if err == io.EOF {
 			break
-		} else if error != nil {
-			log.Fatal(error)
+		} else if err != nil {
+			log.Fatal(err)
 		}
 		crowdsourcer := GetCrowdsourcer(line[1])
 		severity := GetSeverity(line[2])
@@ -143,7 +143,7 @@ func load_vulnerabilities() {
 			Sev: &severity,
 		}
 		vulJson, _ := json.Marshal(*Vul[line[0]])
-		db.Put(context.TODO(), line[0], vulJson)
+		_, _ = db.Put(context.TODO(), line[0], vulJson)
 	}
 }
 
@@ -152,7 +152,7 @@ func GetVulnerability(vul_id string) (Vulnerability) {
 	db := client.DB(context.TODO(), "vulnerability")
 	row := db.Get(context.TODO(), vul_id)
 	vul := Vulnerability{}
-	row.ScanDoc(&vul)
+	_ = row.ScanDoc(&vul)
 	return vul
 }
 
@@ -161,15 +161,15 @@ func initdb(dbname string, refreshdb bool) {
 	client, _ := kivik.New("couch", CouchdbURL)
 	dbexists, _ := client.DBExists(context.TODO(), dbname)
 	if dbexists && refreshdb {
-		client.DestroyDB(context.TODO(), dbname)
+		_ = client.DestroyDB(context.TODO(), dbname)
 	}
-	client.CreateDB(context.TODO(), dbname)
+	_ = client.CreateDB(context.TODO(), dbname)
 }
 
 func add_map_and_list_views() {
 	client, _ := kivik.New("couch", CouchdbURL)
 	db := client.DB(context.TODO(), "finding")
-	db.Put(context.TODO(), "_design/findingDesign", map[string]interface{} {
+	_, _ = db.Put(context.TODO(), "_design/findingDesign", map[string]interface{}{
 		"_id": "_design/findingDesign",
 		"views": map[string]interface{}{
 			"findingcs": map[string]interface{}{
