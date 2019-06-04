@@ -173,9 +173,12 @@ func add_map_and_list_views() {
 		"_id": "_design/findingDesign",
 		"views": map[string]interface{}{
 			"findingcs": map[string]interface{}{
+				"map":    "function (doc) {  var date_split = doc.time.slice(0, 10).split('-');  emit([doc.vulnerability.crowdsourcer.name, doc.vulnerability.severity.name, date_split[0], date_split[1], date_split[2]], doc.vulnerability.severity.karma);}",
 				"reduce": "_sum",
-				"map": "function (doc) {\n  emit([doc.vulnerability.crowdsourcer.name, doc.vulnerability.severity.name], doc.vulnerability.severity.karma);\n}",
 			},
+		},
+		"lists": map[string]interface{}{
+			"contributors": "function(head, req){    start({        'headers': {            'Content-Type': 'text/html'        }    });    send('<html><body><table>');    var row = getRow();    send('<tr>');    if(row.key) {        if(row.key.length > 0) send('<th>Crowdsourcer</th>');        if(row.key.length > 1) send('<th>Severity</th>');        if(row.key.length > 2) send('<th>Year</th>');        if(row.key.length > 3) send('<th>Month</th>');        if(row.key.length > 4) send('<th>Day</th>');    }    send('<th>Karma</th></tr>');    while(row){        var key_string = '';        if(row.key) {            for(i=0;i<row.key.length;i++) {                key_string += ('<td>' + row.key[i] + '</td>');            }        }        send(''.concat(            '<tr>',            key_string,            '<td>' + row.value + '</td>',            '</tr>'        ));        row = getRow();    }    send('</table></body></html>');}",
 		},
 	})
 }
