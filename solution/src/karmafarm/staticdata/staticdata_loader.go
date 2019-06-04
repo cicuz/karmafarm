@@ -24,7 +24,7 @@ func getEnv(key, fallback string) string {
 }
 
 var CouchdbURL = getEnv("COUCHDB_URL","http://admin:pass@localhost:5984/")
-var MaxGoroutine, _ = strconv.Atoi(getEnv("MAX_GOROUTINE", "20"))
+var MaxGoroutine, _ = strconv.Atoi(getEnv("MAX_GOROUTINE", "30"))
 var MsgQueueSize, _ = strconv.Atoi(getEnv("MSG_QUEUE_SIZE", "100"))
 var InputLocation = getEnv("INPUT_LOCATION", "../../../input")
 var LogLocation = getEnv("LOG_LOCATION", "../../logs")
