@@ -44,12 +44,24 @@ func worker(eventChan chan []string, doneChan <-chan bool) {
 				logger.Println("first err ", err, rev, finding)
 				// fetch the existing object (and its `_rev` field) from the database
 				row := db.Get(context.TODO(), event[0])
+				old_finding := static.Finding{}
+				_ = row.ScanDoc(&old_finding)
+				findingJson, _ := json.Marshal(old_finding)
+				logger.Println(string(findingJson))
+				// they are assumed to be equal if Id, Time, and Vulnerability are all the same
+				if finding.Time == old_finding.Time && finding.Vulnerability.Id == old_finding.Vulnerability.Id {
+					logger.Println("rows data matched; not updating")
+					continue
+				}
+
+				// rows data did not match; update record
 				var m map[string]interface{}
 				_ = json.Unmarshal(findingJson, &m)
 				logger.Println(row.Rev, m)
+				// set the `_rev` field so that CouchDB will perform an update
 				m["_rev"] = row.Rev
 				findingJson, _ = json.Marshal(m)
-				// put the updated object into the database
+				// put the newer object into the database
 				rev, err := db.Put(context.TODO(), event[0], m)
 				if err != nil {
 					// update failed (probably another concurrent update)
